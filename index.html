@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brushtalk Viewer</title>
+    <style>
+        :root {
+            --bg-color: #f9f9f9;
+            --card-bg: #ffffff;
+            --text-main: #333;
+            --text-subtle: #888;
+            --highlight: #007acc;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            color: var(--text-main);
+        }
+
+        .turn-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+        }
+
+        .metadata {
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+
+        .meta-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 10px;
+        }
+
+        .speaker {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: var(--highlight);
+        }
+
+        .turn-id {
+            font-size: 0.9em;
+            color: var(--text-subtle);
+        }
+
+        .sentence-original {
+            font-size: 1.2em;
+            margin-bottom: 8px;
+            font-family: "Songti SC", "SimSun", serif; /* Serif for classical/formal feel */
+        }
+
+        .translations {
+            font-size: 0.95em;
+            color: #555;
+        }
+        
+        .translations p {
+            margin: 4px 0;
+        }
+
+        .label {
+            font-size: 0.75em;
+            color: var(--text-subtle);
+            margin-right: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .token-container {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+
+        .token {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 60px;
+            padding: 8px;
+            padding-top: 18px; /* Make room for stratum label */
+            background-color: #fafafa;
+            border-radius: 6px;
+            border: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .stratum-label {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            font-size: 0.6em;
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: white;
+            background-color: #999;
+            font-weight: bold;
+        }
+        
+        /* Stratum Color Variants */
+        .stratum-古 { 
+            background-color: transparent; 
+            color: #ccc; 
+            border: 1px solid #eee;
+        } /* Transparent/Gray - Ancient (Default) */
+        .stratum-名 { background-color: #5bc0de; } /* Light Blue - Names */
+        .stratum-清 { background-color: #5cb85c; } /* Green - Qing/Modern */
+        .stratum-日 { background-color: #d9534f; } /* Red - Japanese loan? */
+
+        /* Nav & Controls */
+        .navbar {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .nav-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .nav-title {
+            font-weight: bold;
+            font-size: 1.4em;
+            color: #2c3e50;
+        }
+
+        .nav-attribution {
+           font-size: 0.85em;
+           color: #666;
+           margin-top: 5px;
+           padding-top: 5px;
+           width: 100%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            background: #fff;
+            padding-top: 10px;
+            margin-top: 10px;
+            font-size: 0.9em;
+            border-top: 1px solid #eee;
+            width: 100%;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .control-group input {
+            cursor: pointer;
+        }
+
+        .btn-about {
+            background-color: #007acc;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.2s;
+        }
+
+        .btn-about:hover {
+            background-color: #005f9e;
+        }
+
+        /* Visibility Toggles via CSS Classes on Body */
+        body.hide-gloss .prop-gloss { display: none; }
+        body.hide-pos .prop-pos { display: none; }
+        body.hide-mandarin .prop-pinyin { display: none; }
+        body.hide-cantonese .prop-cantonese { display: none; }
+        body.hide-japanese .prop-japanese { display: none; }
+        body.hide-stratum .stratum-label { display: none; }
+
+        .about-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .about-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .close-btn {
+            float: right;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+
+        .token-char {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-family: "Songti SC", "SimSun", serif;
+            color: #222;
+        }
+
+        .prop-realization {
+            color: #e67e22; 
+            font-weight: bold;
+            font-size: 0.85em; 
+            background: #fff3e0;
+            padding: 2px 4px;
+            border-radius: 4px;
+            margin-top: -4px;
+            margin-bottom: 4px;
+        }
+
+        .token-prop {
+            font-size: 0.75em;
+            color: #555;
+            margin-bottom: 2px;
+            text-align: center;
+            white-space: nowrap;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .prop-gloss {
+            font-style: italic;
+            color: #0066cc;
+        }
+
+        .prop-pos {
+            font-weight: bold;
+            font-size: 0.7em;
+            background-color: #eee;
+            padding: 1px 4px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+
+        .prop-subtle {
+            color: #999;
+            font-size: 0.7em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+            color: var(--text-subtle);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="navbar">
+        <div class="nav-top">
+            <div class="nav-title">Brushtalk Exchange</div>
+            <button onclick="toggleAbout()" class="btn-about">About</button>
+        </div>
+        <div class="nav-attribution">
+            Project by Prof. David C.S. Li (PolyU), maintained by Dr. Chaak-ming Lau and Dr. Tak-sum Wong at CRLLS, EdUHK.
+        </div>
+        <!-- Controls moved into navbar for cleaner look -->
+        <div class="controls">
+            <label class="control-group">
+                <input type="checkbox" id="show-gloss" checked> Gloss
+            </label>
+            <label class="control-group">
+                <input type="checkbox" id="show-pos" checked> POS
+            </label>
+            <label class="control-group">
+                <input type="checkbox" id="show-mandarin" checked> Mandarin
+            </label>
+            <label class="control-group">
+                <input type="checkbox" id="show-cantonese" checked> Cantonese
+            </label>
+            <label class="control-group">
+                <input type="checkbox" id="show-japanese" checked> Japanese
+            </label>
+            <label class="control-group">
+                <input type="checkbox" id="show-stratum" checked> Stratum
+            </label>
+        </div>
+    </div>
+
+    <div id="content">
+        <div class="loading">Loading data...</div>
+    </div>
+
+    <div class="about-modal" id="about-modal" style="display:none;">
+        <div class="about-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="margin:0;">About Brushtalk Exchange</h2>
+                <span class="close-btn" onclick="toggleAbout()" style="font-size:24px;">&times;</span>
+            </div>
+            <p>This visualization displays a collection of 15,335 brushtalk interactions between Chinese and Japanese intellectuals, annotated with multilingual properties.</p>
+            <h3>Annotations:</h3>
+            <ul style="padding-left: 20px;">
+                <li><strong>Gloss:</strong> English Gloss</li>
+                <li><strong>POS:</strong> Part of Speech tags</li>
+                <li><strong>Mandarin:</strong> Pinyin pronunciation</li>
+                <li><strong>Cantonese:</strong> Jyutping pronunciation</li>
+                <li><strong>Korean:</strong> Romanization</li>
+                <li><strong>Japanese:</strong> On'yomi and Kun'yomi readings</li>
+                <li><strong>Stratum:</strong> Historical linguistic stratum (e.g., Classical, Modern, Qing)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleAbout() {
+        const modal = document.getElementById('about-modal');
+        if (modal.style.display === 'flex') {
+            modal.style.display = 'none';
+        } else {
+            modal.style.display = 'flex';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Init Checkbox Logic
+        const toggles = [
+            { id: 'show-gloss', className: 'hide-gloss' },
+            { id: 'show-pos', className: 'hide-pos' },
+            { id: 'show-mandarin', className: 'hide-mandarin' },
+            { id: 'show-cantonese', className: 'hide-cantonese' },
+            { id: 'show-japanese', className: 'hide-japanese' },
+            { id: 'show-stratum', className: 'hide-stratum' },
+        ];
+
+        toggles.forEach(entry => {
+            const el = document.getElementById(entry.id);
+            if (!el) return;
+
+            const updateClass = () => {
+                if (el.checked) {
+                    document.body.classList.remove(entry.className);
+                } else {
+                    document.body.classList.add(entry.className);
+                }
+            };
+            
+            // Initial call
+            updateClass();
+            el.addEventListener('change', updateClass);
+        });
+
+        fetch('brushtalk.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                renderData(data);
+            })
+            .catch(error => {
+                document.getElementById('content').innerHTML = `
+                    <div style="text-align:center; color: red; margin-top: 20px;">
+                        <h3>Error loading data</h3>
+                        <p>\${error.message}</p>
+                        <p>Make sure you are running this via a local server (e.g. <code>python3 -m http.server</code>) to avoid CORS issues.</p>
+                    </div>
+                `;
+                console.error('Error loading JSON:', error);
+            });
+    });
+
+    function renderData(data) {
+        const contentContainer = document.getElementById('content');
+        
+        // Clear loading message
+        contentContainer.innerHTML = '';
+
+        if (!Array.isArray(data)) {
+            contentContainer.innerHTML = '<p class="error">Data format error: Expected an array.</p>';
+            return;
+        }
+
+        data.forEach(item => {
+            const turnSection = document.createElement('div');
+            turnSection.className = 'turn-card';
+            
+            // --- Metadata Header ---
+            const metadata = item.metadata || {};
+            const speaker = metadata.speaker || 'Unknown';
+            const sentence = metadata.sentence || '';
+            
+            // Build metadata HTML
+            let metadataHtml = `
+                <div class="metadata">
+                    <div class="meta-header">
+                        <span class="speaker">${speaker}</span>
+                        <span class="turn-id">#${item.id}</span>
+                    </div>
+                    ${sentence ? `<div class="sentence-original">${sentence}</div>` : ''}
+                    <div class="translations">
+            `;
+            
+            if (metadata.zh2) {
+                metadataHtml += `<p><span class="label">ZH</span> ${metadata.zh2}</p>`;
+            }
+            if (metadata.en2) {
+                metadataHtml += `<p><span class="label">EN</span> ${metadata.en2}</p>`;
+            }
+            
+            metadataHtml += `
+                    </div>
+                </div>
+            `;
+
+            // --- Tokens Display ---
+            const tokens = item.tokens || [];
+            let tokensHtml = '<div class="token-container">';
+
+            tokens.forEach(token => {
+                const char = token.traditional || '?';
+                
+                // Helper to render property if it exists
+                const renderProp = (key, label, extraClass = '') => {
+                    if (token[key]) {
+                        // Skip POS if it is a punctuation category
+                        if (key === 'POS' && token[key].includes('CATEGORY')) {
+                            return '';
+                        }
+                        return `<div class="token-prop ${extraClass}" title="${label}">${token[key]}</div>`;
+                    }
+                    return '';
+                };
+                
+                // Stratum distinct handling
+                let stratumHtml = '';
+                if (token.stratum) {
+                     // Add safe class based on stratum value first char if possible, or just default
+                     // e.g. stratum-古, stratum-名
+                     const stratumClass = `stratum-${token.stratum}`;
+                     stratumHtml = `<div class="stratum-label ${stratumClass}" title="Stratum: ${token.stratum}">${token.stratum}</div>`;
+                }
+
+                // Handle different chr realization - usually it's the raw glyph vs normalized
+                const realization = token['chr realization'] || '';
+                let realizationHtml = '';
+                if (realization && realization !== char) {
+                    realizationHtml = `<div class="token-prop prop-realization" title="Original Glyph: ${realization}">${realization}</div>`;
+                }
+
+                tokensHtml += `
+                    <div class="token">
+                        ${stratumHtml}
+                        <div class="token-char">${char}</div>
+                        ${realizationHtml}
+                        ${renderProp('gloss', 'Gloss', 'prop-gloss')}
+                        ${renderProp('POS', 'POS', 'prop-pos')}
+                        ${renderProp('Mandarin', 'Mandarin', 'prop-pinyin')}
+                        ${renderProp('Cantonese', 'Cantonese', 'prop-cantonese prop-subtle')}
+                        ${renderProp('JapaneseKun', 'Japanese Kun', 'prop-japanese prop-subtle')}
+                    </div>
+                `;
+            });
+
+            tokensHtml += '</div>'; // Close token-container
+
+            turnSection.innerHTML = metadataHtml + tokensHtml;
+            contentContainer.appendChild(turnSection);
+        });
+    }
+</script>
+
+</body>
+</html>
